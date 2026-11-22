@@ -6,9 +6,12 @@ import {
   coversByDate,
   draftWarnings,
   matchesQuery,
+  partyFitsTable,
   previousVisit,
+  STANDARD_TABLES,
   summarizeDay,
   tableClash,
+  tableKey,
   validateDraft,
 } from '../lib/bookings.ts'
 import { defaultSettings } from '../lib/settings.ts'
@@ -79,10 +82,27 @@ describe('the day book', () => {
     expect(tableClash(next, [finished], tables, zone)).toBeNull()
   })
 
-  it('warns when the party is larger than the table, then still allows a different table', () => {
-    const draft = { ...blankDraft('2026-11-22', defaultSettings(zone), '2026-11-22'), partySize: 4, tableId: 't1', guestName: 'Sam' }
-    expect(draftWarnings(draft, [], tables, zone)).toEqual(['Table 4 seats 2. This party is 4.'])
-    expect(draftWarnings({ ...draft, tableId: 't2' }, [], tables, zone)).toEqual([])
+  it('refuses a party larger than the table', () => {
+    const draft = { ...blankDraft('2026-11-22', defaultSettings(zone), '2026-11-22'), partySize: 4, tableId: 't1', guestName: 'Sam', phone: '07700900123' }
+    expect(partyFitsTable(4, 't1', tables)).toBe('Table 4 only seats 2. This party is 4 guests.')
+    expect(draftWarnings(draft, [], tables, zone)).toEqual([])
+    expect(partyFitsTable(4, 't2', tables)).toBeNull()
+  })
+
+  it('keeps the restaurant table sizes, including table 12', () => {
+    expect(STANDARD_TABLES.map((table) => [tableKey(table.name), table.seats])).toEqual([
+      ['table1', 2],
+      ['table2', 4],
+      ['table3', 6],
+      ['table4', 2],
+      ['table5', 4],
+      ['table6', 4],
+      ['table7', 4],
+      ['table9', 4],
+      ['table10', 4],
+      ['table11', 2],
+      ['table12', 8],
+    ])
   })
 })
 

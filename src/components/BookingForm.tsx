@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { BookingDraft, BookingStatus } from '../types.ts'
-import { draftWarnings, previousVisit, validateDraft } from '../lib/bookings.ts'
-import { guestLabel } from '../lib/format.ts'
+import { partyFitsTable, draftWarnings, previousVisit, validateDraft } from '../lib/bookings.ts'
+import { guestLabel, seatsLabel } from '../lib/format.ts'
 import { shortDate } from '../lib/time.ts'
 import { useBookData } from '../hooks/useBookData.tsx'
 import { Button, Confirm, Field, Sheet, fieldClass } from './ui.tsx'
@@ -46,6 +46,11 @@ export function BookingForm({
     const error = validateDraft(draft)
     if (error) {
       setMessage(error)
+      return
+    }
+    const fit = partyFitsTable(draft.partySize, draft.tableId, tables)
+    if (fit) {
+      setMessage(fit)
       return
     }
     const warnings = draftWarnings(draft, bookings, tables, settings.timezone, bookingId)
@@ -145,8 +150,8 @@ export function BookingForm({
           >
             <option value="">No table</option>
             {tables.map((table) => (
-              <option key={table.id} value={table.id}>
-                {table.name}
+              <option key={table.id} value={table.id} disabled={table.seats < draft.partySize}>
+                {table.name} · {seatsLabel(table.seats)}
               </option>
             ))}
           </select>

@@ -12,12 +12,8 @@ export function statusLabel(status: BookingStatus): string {
   return 'Booked'
 }
 
-export function durationLabel(minutes: number): string {
-  if (minutes > 0 && minutes % 60 === 0) {
-    const hours = minutes / 60
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
-  }
-  return `${minutes} min`
+export function seatsLabel(seats: number): string {
+  return `${seats} ${seats === 1 ? 'seat' : 'seats'}`
 }
 
 export function telHref(phone: string): string | null {

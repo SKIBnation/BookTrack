@@ -13,6 +13,7 @@ export function TodayPage() {
   const { settings, bookings, tables, today, date, chooseDate } = useBookData()
   const editor = useBookingEditor()
   const [showClosed, setShowClosed] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const heading = dayHeading(date, today)
   const summary = summarizeDay(bookings, date)
   const day = sortBookings(bookings.filter((booking) => booking.date === date))
@@ -44,6 +45,7 @@ export function TodayPage() {
         <CoverStat label="Seated" value={summary.seatedCovers} />
         <CoverStat label="Finished" value={summary.doneCovers} />
       </div>
+      {notice && <p className="mb-4 text-sm text-danger">{notice}</p>}
       <p className="mb-4 text-sm text-muted">
         {summary.bookings} {summary.bookings === 1 ? 'booking' : 'bookings'} · {summary.covers} {summary.covers === 1 ? 'cover' : 'covers'}
       </p>
@@ -66,7 +68,7 @@ export function TodayPage() {
               zone={settings.timezone}
               onEdit={() => editor.edit(booking)}
               onStatus={(status) => {
-                void setBookingStatus(booking.id, status)
+                void setBookingStatus(booking.id, status).then(setNotice)
               }}
             />
           ))}
@@ -88,7 +90,7 @@ export function TodayPage() {
               zone={settings.timezone}
               onEdit={() => editor.edit(booking)}
               onStatus={(status) => {
-                void setBookingStatus(booking.id, status)
+                void setBookingStatus(booking.id, status).then(setNotice)
               }}
             />
           ))}

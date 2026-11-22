@@ -1,6 +1,25 @@
 import { DateTime } from 'luxon'
 import type { Booking, BookingDraft, BookingStatus, DiningTable, Settings } from '../types.ts'
+import { guestLabel } from './format.ts'
 import { bookingWindow, suggestTime } from './time.ts'
+
+export const STANDARD_TABLES: { name: string; seats: number }[] = [
+  { name: 'Table 1', seats: 2 },
+  { name: 'Table 2', seats: 4 },
+  { name: 'Table 3', seats: 6 },
+  { name: 'Table 4', seats: 2 },
+  { name: 'Table 5', seats: 4 },
+  { name: 'Table 6', seats: 4 },
+  { name: 'Table 7', seats: 4 },
+  { name: 'Table 9', seats: 4 },
+  { name: 'Table 10', seats: 4 },
+  { name: 'Table 11', seats: 2 },
+  { name: 'Table 12', seats: 8 },
+]
+
+export function tableKey(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '')
+}
 
 const HOLDING: BookingStatus[] = ['booked', 'seated']
 
@@ -130,7 +149,7 @@ export function partyFitsTable(partySize: number, tableId: string | null, tables
   if (!tableId) return null
   const table = tables.find((item) => item.id === tableId)
   if (!table || partySize <= table.seats) return null
-  return `${table.name} seats ${table.seats}. This party is ${partySize}.`
+  return `${table.name} only seats ${table.seats}. This party is ${guestLabel(partySize)}.`
 }
 
 export function draftWarnings(
@@ -142,9 +161,7 @@ export function draftWarnings(
 ): string[] {
   const warnings: string[] = []
   const clash = tableClash({ ...draft, id }, bookings, tables, zone)
-  const fit = partyFitsTable(draft.partySize, draft.tableId, tables)
   if (clash) warnings.push(clash)
-  if (fit) warnings.push(fit)
   return warnings
 }
 

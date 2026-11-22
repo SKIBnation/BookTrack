@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Booking, BookingDraft, BookingStatus, DiningTable, Settings } from '../types.ts'
 import type { RestoredBackup } from './backup.ts'
-import { validateDraft } from './bookings.ts'
+import { validateDraft, partyFitsTable, STANDARD_TABLES, tableKey } from './bookings.ts'
 import { normalizeSettings, rememberTheme, SETTINGS_ID } from './settings.ts'
 
 const globalStore = globalThis as unknown as { __booktrackDb?: BookDatabase }
@@ -31,16 +31,20 @@ function defaultRow(): Settings {
   return normalizeSettings(null)
 }
 
-const DEFAULT_TABLES = ['Table 1', 'Table 2', 'Table 3', 'Table 4', 'Table 5', 'Table 6', 'Table 7', 'Table 9', 'Table 10', 'Table 11']
+const DEFAULT_TABLES = STANDARD_TABLES
 
 async function ensureDefaultTables(database: BookDatabase): Promise<void> {
   const existing = await database.diningTables.toArray()
-  const names = new Set(existing.map((table) => table.name.toLowerCase()))
+  const byKey = new Map(existing.map((table) => [tableKey(table.name), table]))
   let sort = existing.reduce((max, table) => Math.max(max, table.sort), 0)
-  for (const name of DEFAULT_TABLES) {
-    if (names.has(name.toLowerCase())) continue
-    sort += 1
-    await database.diningTables.add({ id: uid(), name, seats: 4, sort })
+  for (const standard of DEFAULT_TABLES) {
+    const current = byKey.get(tableKey(standard.name))
+    if (!current) {
+      sort += 1
+      await database.diningTables.add({ id: uid(), name: standard.name, seats: standard.seats, sort })
+      continue
+    }
+    if (current.seats !== standard.seats) await database.diningTables.update(current.id, { seats: standard.seats })
   }
 }
 
@@ -69,7 +73,7 @@ export function updateSettings(patch: Partial<Settings>): Promise<void> {
 }
 
 export async function saveBooking(draft: BookingDraft, id?: string): Promise<string | null> {
-  const error = validateDraft(draft)
+  const error = validateDraft(draft) ?? partyFitsTable(draft.partySize, draft.tableId, await db.diningTables.toArray())
   if (error) return error
   const now = new Date().toISOString()
   if (id) {
@@ -82,10 +86,15 @@ export async function saveBooking(draft: BookingDraft, id?: string): Promise<str
   return null
 }
 
-export async function setBookingStatus(id: string, status: BookingStatus): Promise<void> {
+export async function setBookingStatus(id: string, status: BookingStatus): Promise<string | null> {
   const existing = await db.bookings.get(id)
-  if (!existing) return
+  if (!existing) return null
+  if (status === 'seated') {
+    const fit = partyFitsTable(existing.partySize, existing.tableId, await db.diningTables.toArray())
+    if (fit) return fit
+  }
   await db.bookings.update(id, { status, updatedAt: new Date().toISOString() })
+  return null
 }
 
 export async function deleteBooking(id: string): Promise<void> {
