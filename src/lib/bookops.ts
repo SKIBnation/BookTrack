@@ -84,14 +84,22 @@ export function applyBookOp(input: BookFile, op: BookOp): BookOpResult {
   return fail(book, 'That change isn’t recognised.')
 }
 
-export function bookingNotice(booking: Booking, tables: DiningTable[]): BookingNotice {
+export function bookingNotice(booking: Booking, tables: DiningTable[], title = 'New booking'): BookingNotice {
   const table = tableName(tables, booking.tableId)
   const where = table ? ` · ${table}` : ''
   return {
-    title: 'New booking',
+    title,
     body: `${booking.guestName} · ${guestLabel(booking.partySize)}${where} · ${booking.time}`,
     tag: `booking-${booking.id}`,
   }
+}
+
+export function changeNotice(previous: Booking, next: Booking, tables: DiningTable[]): BookingNotice | null {
+  if (next.status === 'cancelled' && previous.status !== 'cancelled') return bookingNotice(next, tables, 'Cancelled')
+  if (next.status === 'seated' && previous.status !== 'seated') return bookingNotice(next, tables, 'Seated')
+  const moved = previous.tableId !== next.tableId || previous.date !== next.date || previous.time !== next.time
+  if (moved) return bookingNotice(next, tables, 'Moved')
+  return null
 }
 
 function installBook(book: BookFile, op: Extract<BookOp, { type: 'seed' | 'replace' }>, onlyWhenEmpty: boolean): BookOpResult {
@@ -105,7 +113,7 @@ function installBook(book: BookFile, op: Extract<BookOp, { type: 'seed' | 'repla
   const aligned = alignStandardTables({ ...book, settings, tables: seededTables, bookings: [] })
   const bookings: Booking[] = []
   for (const item of op.bookings) {
-    const cleaned = cleanBooking(item, aligned.tables, item.createdAt)
+    const cleaned = cleanBooking(item, aligned.tables, item.createdAt, item.takenBy)
     if ('booking' in cleaned) bookings.push(cleaned.booking)
   }
   return ok({ ...aligned, settings, bookings }, null)
@@ -113,13 +121,14 @@ function installBook(book: BookFile, op: Extract<BookOp, { type: 'seed' | 'repla
 
 function saveBooking(book: BookFile, input: Booking): BookOpResult {
   const existing = book.bookings.find((booking) => booking.id === input.id)
-  const cleaned = cleanBooking(input, book.tables, existing?.createdAt ?? input.createdAt)
+  const cleaned = cleanBooking(input, book.tables, existing?.createdAt ?? input.createdAt, existing ? (existing.takenBy ?? '') : input.takenBy)
   if ('error' in cleaned) return fail(book, cleaned.error)
   const bookings = existing
     ? book.bookings.map((booking) => (booking.id === cleaned.booking.id ? cleaned.booking : booking))
     : [...book.bookings, cleaned.booking]
   if (bookings.length > 5000) return fail(book, 'The book is full.')
-  return ok({ ...book, bookings }, existing ? null : bookingNotice(cleaned.booking, book.tables))
+  const notice = existing ? changeNotice(existing, cleaned.booking, book.tables) : bookingNotice(cleaned.booking, book.tables)
+  return ok({ ...book, bookings }, notice)
 }
 
 function setStatus(book: BookFile, id: string, status: BookingStatus): BookOpResult {
@@ -130,10 +139,9 @@ function setStatus(book: BookFile, id: string, status: BookingStatus): BookOpRes
     const fit = partyFitsTable(existing.partySize, existing.tableId, book.tables)
     if (fit) return fail(book, fit)
   }
-  const bookings = book.bookings.map((booking) =>
-    booking.id === id ? { ...booking, status: nextStatus, updatedAt: new Date().toISOString() } : booking,
-  )
-  return ok({ ...book, bookings }, null)
+  const next = { ...existing, status: nextStatus, updatedAt: new Date().toISOString() }
+  const bookings = book.bookings.map((booking) => (booking.id === id ? next : booking))
+  return ok({ ...book, bookings }, changeNotice(existing, next, book.tables))
 }
 
 function addTable(book: BookFile, input: DiningTable): BookOpResult {
@@ -164,7 +172,12 @@ function deleteTable(book: BookFile, id: string): BookOpResult {
   )
 }
 
-function cleanBooking(input: Booking, tables: DiningTable[], createdAt: string | undefined): { booking: Booking } | { error: string } {
+function cleanBooking(
+  input: Booking,
+  tables: DiningTable[],
+  createdAt: string | undefined,
+  takenBy: string | undefined,
+): { booking: Booking } | { error: string } {
   const id = cleanId(input.id)
   if (!id) return { error: 'That booking is missing an id.' }
   const draft = {
@@ -193,6 +206,7 @@ function cleanBooking(input: Booking, tables: DiningTable[], createdAt: string |
       tableId: draft.tableId,
       status: draft.status,
       notes: draft.notes.trim(),
+      takenBy: cleanTakenBy(takenBy),
       createdAt: typeof createdAt === 'string' && createdAt ? createdAt : now,
       updatedAt: now,
     },
@@ -236,6 +250,10 @@ function cleanId(value: unknown): string {
   const id = value.trim()
   if (!id || id.length > 80) return ''
   return id
+}
+
+function cleanTakenBy(value: unknown): string {
+  return text(value).trim().slice(0, 40)
 }
 
 function text(value: unknown): string {

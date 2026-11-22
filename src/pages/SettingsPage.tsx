@@ -4,6 +4,7 @@ import { useBookData } from '../hooks/useBookData.tsx'
 import { bookingsToCsv, createBackup, parseBackup, shareOrDownload, type RestoredBackup } from '../lib/backup.ts'
 import { addTable, deleteTable, restoreBackup, updateSettings, updateTable } from '../lib/db.ts'
 import { isIos } from '../lib/platform.ts'
+import { saveStaffName, staffName } from '../lib/staff.ts'
 
 export function SettingsPage() {
   const { settings, bookings, tables } = useBookData()
@@ -42,6 +43,7 @@ export function SettingsPage() {
     <>
       <PageHeader title="Settings" detail="Shared with the other phone." />
       <Card className="mb-3">
+        <StaffNameField />
         <SavedField
           label="Restaurant"
           saved={settings.restaurantName}
@@ -172,6 +174,25 @@ export function SettingsPage() {
         />
       )}
     </>
+  )
+}
+
+function StaffNameField() {
+  const [name, setName] = useState(staffName)
+  return (
+    <Field label="Your name">
+      <input
+        className={fieldClass}
+        value={name}
+        autoComplete="nickname"
+        placeholder="On this phone"
+        onChange={(event) => {
+          setName(event.target.value)
+          saveStaffName(event.target.value)
+        }}
+      />
+      <p className="mt-1 text-sm leading-5 text-muted">Stays on this phone. New bookings show who took them.</p>
+    </Field>
   )
 }
 

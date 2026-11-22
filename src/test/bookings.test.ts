@@ -12,6 +12,7 @@ import {
   summarizeDay,
   tableClash,
   tableKey,
+  tablesRightNow,
   validateDraft,
 } from '../lib/bookings.ts'
 import { defaultSettings } from '../lib/settings.ts'
@@ -35,6 +36,7 @@ function booking(patch: Partial<Booking> = {}): Booking {
     tableId: 't1',
     status: 'booked',
     notes: 'Birthday',
+    takenBy: '',
     createdAt: '2026-11-01T12:00:00.000Z',
     updatedAt: '2026-11-01T12:00:00.000Z',
     ...patch,
@@ -136,6 +138,19 @@ describe('draft checks', () => {
     const now = DateTime.fromISO('2026-11-22T18:01:00', { zone })
     expect(suggestTime('2026-11-22', '2026-11-22', zone, now)).toBe('18:15')
     expect(suggestTime('2026-11-23', '2026-11-22', zone, now)).toBe('19:00')
+  })
+})
+
+describe('tables right now', () => {
+  it('keeps a seated party and frees a booking whose sitting has ended', () => {
+    const now = DateTime.fromISO('2026-11-22T20:00', { zone })
+    if (!now.isValid) throw new Error('bad clock')
+    const seated = booking({ id: 'seated', status: 'seated', time: '18:00', tableId: 't1' })
+    const finishedWindow = booking({ id: 'earlier', time: '18:00', tableId: 't2' })
+    const later = booking({ id: 'later', time: '20:30', tableId: 't2' })
+    const nowTables = tablesRightNow(tables, [seated, finishedWindow, later], '2026-11-22', zone, now)
+    expect(nowTables.find((item) => item.table.id === 't1')?.booking?.id).toBe('seated')
+    expect(nowTables.find((item) => item.table.id === 't2')?.booking).toBeNull()
   })
 })
 

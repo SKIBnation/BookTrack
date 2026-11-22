@@ -1,5 +1,6 @@
+import { DateTime } from 'luxon'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BookingForm } from '../components/BookingForm.tsx'
 import { BookingCard } from '../components/BookingCard.tsx'
 import { NotifyBanner } from '../components/NotifyBanner.tsx'
@@ -7,8 +8,9 @@ import { IconButton, PageHeader } from '../components/ui.tsx'
 import { useSyncStatus } from '../hooks/useSyncStatus.ts'
 import { useBookData } from '../hooks/useBookData.tsx'
 import { useBookingEditor } from '../hooks/useBookingEditor.ts'
-import { sortBookings, summarizeDay } from '../lib/bookings.ts'
+import { sortBookings, summarizeDay, tablesRightNow } from '../lib/bookings.ts'
 import { setBookingStatus } from '../lib/db.ts'
+import { staffName } from '../lib/staff.ts'
 import { dayHeading, shiftDate } from '../lib/time.ts'
 
 export function TodayPage() {
@@ -17,6 +19,12 @@ export function TodayPage() {
   const syncStatus = useSyncStatus()
   const [showClosed, setShowClosed] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [now, setNow] = useState(() => DateTime.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(DateTime.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const floor = date === today ? tablesRightNow(tables, bookings, date, settings.timezone, now) : []
   const heading = dayHeading(date, today)
   const summary = summarizeDay(bookings, date)
   const day = sortBookings(bookings.filter((booking) => booking.date === date))
@@ -36,6 +44,28 @@ export function TodayPage() {
         <p className="mb-4 text-sm text-danger">Can’t reach the shared book right now.</p>
       )}
       <NotifyBanner />
+      {!staffName() && (
+        <p className="mb-4 text-sm text-muted">Add your name in Settings so the other phone can see who took a booking.</p>
+      )}
+      {floor.length > 0 && (
+        <section className="mb-5">
+          <h2 className="mb-2 text-sm font-semibold">Tables right now</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {floor.map(({ table, booking }) => (
+              <div
+                key={table.id}
+                className={`rounded-2xl border px-3 py-3 ${booking ? 'border-stroke bg-card' : 'border-gain bg-[var(--gain-soft)]'}`}
+              >
+                <p className="font-semibold">{table.name}</p>
+                <p className={`mt-1 text-sm ${booking ? 'text-fg' : 'text-gain'}`}>{booking ? booking.guestName : 'Free'}</p>
+                {booking && (
+                  <p className="mt-0.5 text-xs text-muted">{booking.status === 'seated' ? 'Seated' : `Booked ${booking.time}`}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="mb-4 grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2">
         <button type="button" aria-label="Previous day" className="flex h-11 items-center justify-center rounded-2xl bg-card" onClick={() => chooseDate(shiftDate(date, -1))}>
           <ChevronLeft size={20} />

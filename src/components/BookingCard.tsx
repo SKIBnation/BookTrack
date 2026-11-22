@@ -52,6 +52,7 @@ export function BookingCard({
         {guestLabel(booking.partySize)}
         {name ? ` · ${name}` : ''}
       </p>
+      {booking.takenBy && <p className="mt-1 text-sm text-muted">Added by {booking.takenBy}</p>}
       {booking.notes && <p className="mt-2 text-sm leading-5 text-muted">{booking.notes}</p>}
       {clash && <p className="mt-2 text-sm text-amber">{clash}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -109,6 +110,7 @@ export function BookingRow({
           {meta ? `${meta} · ` : ''}
           {guestLabel(booking.partySize)}
           {name ? ` · ${name}` : ''}
+          {booking.takenBy ? ` · ${booking.takenBy}` : ''}
         </span>
       </span>
       <StatusPill status={booking.status} />

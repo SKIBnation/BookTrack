@@ -29,6 +29,7 @@ export interface Booking {
   tableId: string | null
   status: BookingStatus
   notes: string
+  takenBy: string
   createdAt: string
   updatedAt: string
 }

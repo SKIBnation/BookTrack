@@ -5,6 +5,7 @@ import type { RestoredBackup } from './backup.ts'
 import type { BookFile, BookOp } from './bookops.ts'
 import { validateDraft, partyFitsTable, STANDARD_TABLES, tableKey } from './bookings.ts'
 import { normalizeSettings, rememberTheme, SETTINGS_ID } from './settings.ts'
+import { staffName } from './staff.ts'
 import { enqueue } from './turn.ts'
 
 const globalStore = globalThis as unknown as { __booktrackDb?: BookDatabase }
@@ -99,7 +100,7 @@ export async function saveBooking(draft: BookingDraft, id?: string): Promise<str
   const now = new Date().toISOString()
   const existing = id ? await db.bookings.get(id) : undefined
   if (id && !existing) return 'That booking is no longer in the book.'
-  const booking = toBooking(draft, id ?? uid(), existing?.createdAt ?? now, now)
+  const booking = toBooking(draft, id ?? uid(), existing?.createdAt ?? now, now, existing ? (existing.takenBy ?? '') : staffName())
   return publish({ type: 'saveBooking', booking })
 }
 
@@ -161,7 +162,7 @@ async function publish(op: BookOp): Promise<string | null> {
   return null
 }
 
-function toBooking(draft: BookingDraft, id: string, createdAt: string, updatedAt: string): Booking {
+function toBooking(draft: BookingDraft, id: string, createdAt: string, updatedAt: string, takenBy: string): Booking {
   return {
     id,
     guestName: draft.guestName.trim(),
@@ -173,6 +174,7 @@ function toBooking(draft: BookingDraft, id: string, createdAt: string, updatedAt
     tableId: draft.tableId,
     status: draft.status,
     notes: draft.notes.trim(),
+    takenBy: takenBy.trim().slice(0, 40),
     createdAt,
     updatedAt,
   }

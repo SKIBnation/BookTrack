@@ -16,6 +16,7 @@ const booking: Booking = {
   tableId: 't1',
   status: 'booked',
   notes: 'Says "window"',
+  takenBy: 'Sam',
   createdAt: '2026-11-01T12:00:00.000Z',
   updatedAt: '2026-11-01T12:00:00.000Z',
 }

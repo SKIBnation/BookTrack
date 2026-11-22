@@ -10,11 +10,11 @@ export function NotifyBanner() {
 
   return (
     <div className="mb-4 rounded-[24px] border border-stroke bg-card px-4 py-4">
-      <p className="font-medium">Hear about new bookings</p>
+      <p className="font-medium">Hear about the book</p>
       <p className="mt-1 text-sm leading-5 text-muted">
         {iphoneInstall
-          ? 'Add BookTrack to the Home Screen and open it from that icon. Then this phone can ping you when the other person adds a booking.'
-          : 'Turn on notifications so this phone pings you when the other person adds a booking, even if BookTrack is closed.'}
+          ? 'Add BookTrack to the Home Screen and open it from that icon. Then this phone can ping you when the other person adds, moves, seats, or cancels a booking.'
+          : 'Turn on notifications so this phone pings you when the other person adds, moves, seats, or cancels a booking, even if BookTrack is closed.'}
       </p>
       {message && <p className="mt-2 text-sm text-danger">{message}</p>}
       {!iphoneInstall && Notification.permission !== 'denied' && (

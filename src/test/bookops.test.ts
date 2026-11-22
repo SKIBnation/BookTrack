@@ -14,6 +14,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
     tableId: 'table-table1',
     status: 'booked',
     notes: '',
+    takenBy: 'Sam',
     createdAt: '2026-11-22T18:00:00.000Z',
     updatedAt: '2026-11-22T18:00:00.000Z',
     ...overrides,
@@ -38,6 +39,7 @@ describe('shared book', () => {
     const saved = applyBookOp(emptyBook(), { type: 'saveBooking', booking: booking({ partySize: 4, tableId: 'table-table2' }) })
     const moved = applyBookOp(saved.book, { type: 'setStatus', id: 'b1', status: 'seated' })
     expect(moved.error).toBeNull()
+    expect(moved.notify?.title).toBe('Seated')
     const overcrowded = applyBookOp(
       { ...moved.book, bookings: moved.book.bookings.map((item) => ({ ...item, tableId: 'table-table1', partySize: 4 })) },
       { type: 'setStatus', id: 'b1', status: 'seated' },
@@ -57,5 +59,17 @@ describe('shared book', () => {
     expect(seeded.book.tables.find((table) => table.name === 'Table 1')?.seats).toBe(2)
     expect(seeded.book.tables.some((table) => table.name === 'Table 12' && table.seats === 8)).toBe(true)
     expect(seeded.book.bookings[0]?.tableId).toBe('custom-1')
+  })
+
+  it('pings when a booking is moved or cancelled, and keeps who added it', () => {
+    const saved = applyBookOp(emptyBook(), { type: 'saveBooking', booking: booking({ takenBy: 'Alex' }) })
+    const moved = applyBookOp(saved.book, { type: 'saveBooking', booking: booking({ tableId: 'table-table2', time: '20:00', takenBy: 'Sam' }) })
+    expect(moved.notify?.title).toBe('Moved')
+    expect(moved.notify?.body).toContain('Table 2')
+    expect(moved.book.bookings[0]?.takenBy).toBe('Alex')
+    const cancelled = applyBookOp(moved.book, { type: 'setStatus', id: 'b1', status: 'cancelled' })
+    expect(cancelled.notify?.title).toBe('Cancelled')
+    const noted = applyBookOp(saved.book, { type: 'saveBooking', booking: booking({ notes: 'Window', takenBy: 'Sam' }) })
+    expect(noted.notify).toBeNull()
   })
 })

@@ -12,7 +12,7 @@ export function apiBase(): string {
   const configured = import.meta.env.VITE_API_URL?.trim()
   if (configured) return configured.replace(/\/$/, '')
   if (import.meta.env.DEV) return '/api'
-  return 'https://booktrack.curious-smartphone-71a.workers.dev'
+  return 'https://booktrack.coal-zenobia.workers.dev'
 }
 
 export function hasSession(): boolean {

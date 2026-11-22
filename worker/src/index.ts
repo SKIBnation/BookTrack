@@ -1,4 +1,5 @@
 import { buildPushPayload, type PushSubscription as WebPushSubscription } from '@block65/webcrypto-web-push'
+import { DurableObject } from 'cloudflare:workers'
 import { applyBookOp, emptyBook, type BookFile, type BookOp, type BookOpResult } from '../../src/lib/bookops.ts'
 
 interface Env {
@@ -27,12 +28,7 @@ const WINDOW_MS = 15 * 60 * 1000
 const MAX_TRIES = 8
 const MAX_BODY = 1_000_000
 
-export class BookRoom {
-  constructor(
-    private readonly state: DurableObjectState,
-    private readonly env: Env,
-  ) {}
-
+export class BookRoom extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname === '/v1/health' && request.method === 'GET') return json({ ok: true })
@@ -58,7 +54,7 @@ export class BookRoom {
     }
     const attempts = await this.attempts()
     delete attempts[ipHash]
-    await this.state.storage.put('attempts', attempts)
+    await this.ctx.storage.put('attempts', attempts)
     return json({ token: await signToken(this.env.SESSION_SECRET) })
   }
 
@@ -74,7 +70,7 @@ export class BookRoom {
     const current = await this.book()
     const applied = applyBookOp(current, op)
     if (applied.error) return json({ error: applied.error, book: current, vapidPublicKey: this.env.VAPID_PUBLIC_KEY ?? '' }, 400)
-    await this.state.storage.put('book', applied.book)
+    await this.ctx.storage.put('book', applied.book)
     if (applied.notify) await this.sendNotice(applied, clientId)
     return json({ book: applied.book, vapidPublicKey: this.env.VAPID_PUBLIC_KEY ?? '' })
   }
@@ -87,21 +83,21 @@ export class BookRoom {
     const p256dh = subscription?.keys?.p256dh ?? ''
     const auth = subscription?.keys?.auth ?? ''
     if (!clientId || !endpoint.startsWith('https://') || !p256dh || !auth) return json({ error: 'That notification registration is incomplete.' }, 400)
-    const subs = (await this.state.storage.get<PushSub[]>('push')) ?? []
+    const subs = (await this.ctx.storage.get<PushSub[]>('push')) ?? []
     const next = [
       { clientId, endpoint, p256dh, auth, updatedAt: new Date().toISOString() },
       ...subs.filter((item) => item.clientId !== clientId),
     ].slice(0, 10)
-    await this.state.storage.put('push', next)
+    await this.ctx.storage.put('push', next)
     return json({ ok: true })
   }
 
   private async book(): Promise<BookFile> {
-    return (await this.state.storage.get<BookFile>('book')) ?? emptyBook()
+    return (await this.ctx.storage.get<BookFile>('book')) ?? emptyBook()
   }
 
   private async attempts(): Promise<Record<string, Attempt>> {
-    return (await this.state.storage.get<Record<string, Attempt>>('attempts')) ?? {}
+    return (await this.ctx.storage.get<Record<string, Attempt>>('attempts')) ?? {}
   }
 
   private async tooManyTries(ipHash: string): Promise<boolean> {
@@ -117,12 +113,12 @@ export class BookRoom {
     const row = attempts[ipHash]
     if (!row || now > row.resetAt) attempts[ipHash] = { failures: 1, resetAt: now + WINDOW_MS }
     else attempts[ipHash] = { failures: row.failures + 1, resetAt: row.resetAt }
-    await this.state.storage.put('attempts', attempts)
+    await this.ctx.storage.put('attempts', attempts)
   }
 
   private async sendNotice(applied: BookOpResult, clientId: string): Promise<void> {
     if (!applied.notify || !this.env.VAPID_PRIVATE_KEY || !this.env.VAPID_PUBLIC_KEY) return
-    const subs = (await this.state.storage.get<PushSub[]>('push')) ?? []
+    const subs = (await this.ctx.storage.get<PushSub[]>('push')) ?? []
     const notice = applied.notify
     await Promise.all(
       subs
@@ -145,8 +141,8 @@ export class BookRoom {
             )
             const response = await fetch(row.endpoint, payload)
             if (response.status === 404 || response.status === 410) {
-              const remaining = ((await this.state.storage.get<PushSub[]>('push')) ?? []).filter((item) => item.clientId !== row.clientId)
-              await this.state.storage.put('push', remaining)
+              const remaining = ((await this.ctx.storage.get<PushSub[]>('push')) ?? []).filter((item) => item.clientId !== row.clientId)
+              await this.ctx.storage.put('push', remaining)
             }
           } catch {
             /* A failed ping must not undo the booking. */

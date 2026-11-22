@@ -112,6 +112,36 @@ export function summarizeDay(bookings: Booking[], date: string): DaySummary {
   }
 }
 
+export interface TableNow {
+  table: DiningTable
+  booking: Booking | null
+}
+
+export function tablesRightNow(
+  tables: DiningTable[],
+  bookings: Booking[],
+  date: string,
+  zone: string,
+  now = DateTime.now(),
+): TableNow[] {
+  const zoned = now.setZone(zone)
+  const instant = (zoned.isValid ? zoned : now).toMillis()
+  return tables.map((table) => {
+    const holding = bookings.filter((booking) => booking.tableId === table.id && occupiesNow(booking, date, zone, instant))
+    const seated = holding.find((booking) => booking.status === 'seated')
+    return { table, booking: seated ?? holding[0] ?? null }
+  })
+}
+
+function occupiesNow(booking: Booking, date: string, zone: string, instant: number): boolean {
+  if (booking.date !== date) return false
+  if (booking.status === 'seated') return true
+  if (booking.status !== 'booked') return false
+  const window = bookingWindow(booking.date, booking.time, booking.durationMinutes, zone)
+  if (!window) return false
+  return instant >= window.start && instant < window.end
+}
+
 export function tableName(tables: DiningTable[], tableId: string | null): string | null {
   if (!tableId) return null
   return tables.find((table) => table.id === tableId)?.name ?? null

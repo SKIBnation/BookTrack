@@ -60,7 +60,7 @@ export function parseBackup(text: string): RestoredBackup | { error: string } {
 }
 
 export function bookingsToCsv(bookings: Booking[], tables: DiningTable[], zone: string): string {
-  const header = ['Date', 'Time', 'Until', 'Guest', 'Party', 'Phone', 'Table', 'Status', 'Notes']
+  const header = ['Date', 'Time', 'Until', 'Guest', 'Party', 'Phone', 'Table', 'Status', 'Taken by', 'Notes']
   const ordered = bookings
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.guestName.localeCompare(b.guestName))
@@ -73,6 +73,7 @@ export function bookingsToCsv(bookings: Booking[], tables: DiningTable[], zone: 
     booking.phone,
     tableName(tables, booking.tableId) ?? '',
     statusLabel(booking.status),
+    booking.takenBy ?? '',
     booking.notes,
   ])
   return `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`
@@ -129,6 +130,7 @@ function normalizeBooking(raw: unknown): Booking | null {
     tableId: typeof value.tableId === 'string' && value.tableId ? value.tableId : null,
     status: normalizeStatus(value.status),
     notes: typeof value.notes === 'string' ? value.notes.trim().slice(0, 500) : '',
+    takenBy: typeof value.takenBy === 'string' ? value.takenBy.trim().slice(0, 40) : '',
     createdAt,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : createdAt,
   }
