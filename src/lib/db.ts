@@ -22,12 +22,26 @@ function createDatabase(): BookDatabase {
   database.on('ready', async () => {
     const existing = await database.settings.get(SETTINGS_ID)
     if (!existing) await database.settings.put(defaultRow())
+    await ensureDefaultTables(database)
   })
   return database
 }
 
 function defaultRow(): Settings {
   return normalizeSettings(null)
+}
+
+const DEFAULT_TABLES = ['Table 1', 'Table 2', 'Table 3', 'Table 4', 'Table 5', 'Table 6', 'Table 7', 'Table 9', 'Table 10', 'Table 11']
+
+async function ensureDefaultTables(database: BookDatabase): Promise<void> {
+  const existing = await database.diningTables.toArray()
+  const names = new Set(existing.map((table) => table.name.toLowerCase()))
+  let sort = existing.reduce((max, table) => Math.max(max, table.sort), 0)
+  for (const name of DEFAULT_TABLES) {
+    if (names.has(name.toLowerCase())) continue
+    sort += 1
+    await database.diningTables.add({ id: uid(), name, seats: 4, sort })
+  }
 }
 
 export const db = globalStore.__booktrackDb ?? createDatabase()

@@ -41,9 +41,8 @@ export function validateDraft(draft: BookingDraft): string | null {
   }
   if (!isDate(draft.date)) return 'Choose a date.'
   if (!isTime(draft.time)) return 'Choose a time.'
-  if (!Number.isInteger(draft.durationMinutes) || draft.durationMinutes < 15 || draft.durationMinutes > 360) {
-    return 'Sitting length needs to be between 15 minutes and 6 hours.'
-  }
+  const phoneDigits = draft.phone.replace(/\D/g, '')
+  if (!draft.phone.trim() || phoneDigits.length < 6) return 'Add a phone number.'
   if (draft.phone.trim().length > 40) return 'That phone number is too long.'
   if (draft.notes.trim().length > 500) return 'Keep the note under 500 characters.'
   return null

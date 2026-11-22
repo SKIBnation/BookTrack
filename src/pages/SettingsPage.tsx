@@ -3,8 +3,6 @@ import { Button, Card, Confirm, Field, PageHeader, fieldClass } from '../compone
 import { useBookData } from '../hooks/useBookData.tsx'
 import { bookingsToCsv, createBackup, parseBackup, shareOrDownload, type RestoredBackup } from '../lib/backup.ts'
 import { addTable, deleteTable, restoreBackup, updateSettings, updateTable } from '../lib/db.ts'
-import { DURATION_OPTIONS } from '../lib/settings.ts'
-import { durationLabel } from '../lib/format.ts'
 import { isIos } from '../lib/platform.ts'
 
 export function SettingsPage() {
@@ -62,21 +60,6 @@ export function SettingsPage() {
             }
           }}
         />
-        <Field label="Usual sitting">
-          <select
-            className={fieldClass}
-            value={settings.defaultDurationMinutes}
-            onChange={(event) => {
-              void updateSettings({ defaultDurationMinutes: Number(event.target.value) })
-            }}
-          >
-            {DURATION_OPTIONS.map((minutes) => (
-              <option key={minutes} value={minutes}>
-                {durationLabel(minutes)}
-              </option>
-            ))}
-          </select>
-        </Field>
         <p className="mb-1.5 text-[12px] font-medium uppercase tracking-[0.14em] text-muted">Appearance</p>
         <div className="grid grid-cols-2 gap-2">
           <Button aria-pressed={settings.theme === 'dark'} variant={settings.theme === 'dark' ? 'primary' : 'secondary'} onClick={() => void updateSettings({ theme: 'dark' })}>

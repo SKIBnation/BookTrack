@@ -108,7 +108,8 @@ describe('draft checks', () => {
     const draft = blankDraft('2026-11-22', settings, '2026-11-22')
     expect(validateDraft(draft)).toBe('Add the guest’s name.')
     expect(validateDraft({ ...draft, guestName: 'Sam', partySize: 0 })).toMatch(/Party size/)
-    expect(validateDraft({ ...draft, guestName: 'Sam' })).toBeNull()
+    expect(validateDraft({ ...draft, guestName: 'Sam' })).toBe('Add a phone number.')
+    expect(validateDraft({ ...draft, guestName: 'Sam', phone: '07700900123' })).toBeNull()
   })
 
   it('suggests the next quarter hour today and 19:00 on another day', () => {

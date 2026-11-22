@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import type { BookingDraft, BookingStatus } from '../types.ts'
-import { DURATION_OPTIONS } from '../lib/settings.ts'
 import { draftWarnings, previousVisit, validateDraft } from '../lib/bookings.ts'
-import { durationLabel, guestLabel } from '../lib/format.ts'
+import { guestLabel } from '../lib/format.ts'
 import { shortDate } from '../lib/time.ts'
 import { useBookData } from '../hooks/useBookData.tsx'
 import { Button, Confirm, Field, Sheet, fieldClass } from './ui.tsx'
@@ -29,9 +28,6 @@ export function BookingForm({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving, setSaving] = useState(false)
   const visit = previousVisit(bookings, draft.guestName, bookingId)
-  const durations = DURATION_OPTIONS.includes(draft.durationMinutes)
-    ? DURATION_OPTIONS
-    : [draft.durationMinutes, ...DURATION_OPTIONS].sort((a, b) => a - b)
 
   async function commit(next: BookingDraft) {
     setSaving(true)
@@ -63,6 +59,7 @@ export function BookingForm({
   return (
     <Sheet title={title} onClose={onClose}>
       <form
+        className="min-w-0"
         onSubmit={(event) => {
           event.preventDefault()
           requestSave()
@@ -89,11 +86,12 @@ export function BookingForm({
             onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
             inputMode="tel"
             autoComplete="tel"
-            placeholder="Optional"
+            placeholder="Phone number"
+            required
           />
         </Field>
         <Field label="Party">
-          <span className="flex items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               aria-label="Fewer guests"
@@ -121,7 +119,7 @@ export function BookingForm({
             </button>
           </span>
         </Field>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid min-w-0 grid-cols-2 gap-2">
           <Field label="Date">
             <input
               className={fieldClass}
@@ -139,19 +137,6 @@ export function BookingForm({
             />
           </Field>
         </div>
-        <Field label="Sitting">
-          <select
-            className={fieldClass}
-            value={draft.durationMinutes}
-            onChange={(event) => setDraft({ ...draft, durationMinutes: Number(event.target.value) })}
-          >
-            {durations.map((minutes) => (
-              <option key={minutes} value={minutes}>
-                {durationLabel(minutes)}
-              </option>
-            ))}
-          </select>
-        </Field>
         <Field label="Table">
           <select
             className={fieldClass}
@@ -161,7 +146,7 @@ export function BookingForm({
             <option value="">No table</option>
             {tables.map((table) => (
               <option key={table.id} value={table.id}>
-                {table.name} · {table.seats} seats
+                {table.name}
               </option>
             ))}
           </select>

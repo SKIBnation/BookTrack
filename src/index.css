@@ -64,6 +64,12 @@ body,
 .app-frame {
   height: var(--app-height, 100dvh);
   min-height: var(--app-height, 100dvh);
+  overflow-x: hidden;
+}
+
+.booking-sheet {
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
 }
 
 html,
@@ -96,6 +102,8 @@ input,
 select,
 textarea {
   font-size: 16px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 ::selection {

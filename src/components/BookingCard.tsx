@@ -1,7 +1,6 @@
 import type { Booking, BookingStatus, DiningTable } from '../types.ts'
 import { tableClash, tableName } from '../lib/bookings.ts'
 import { guestLabel, statusLabel, telHref } from '../lib/format.ts'
-import { endTimeLabel } from '../lib/time.ts'
 import { Button, Card } from './ui.tsx'
 
 const pillClass: Record<BookingStatus, string> = {
@@ -36,7 +35,6 @@ export function BookingCard({
   onStatus: (status: BookingStatus) => void
 }) {
   const name = tableName(tables, booking.tableId)
-  const until = endTimeLabel(booking.date, booking.time, booking.durationMinutes, zone)
   const clash = tableClash(booking, bookings, tables, zone)
   const phone = telHref(booking.phone)
   const closed = booking.status === 'cancelled' || booking.status === 'no-show'
@@ -46,7 +44,6 @@ export function BookingCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[15px] font-semibold tabular-nums">{booking.time}</p>
-          <p className="text-xs text-muted">until {until}</p>
         </div>
         <StatusPill status={booking.status} />
       </div>

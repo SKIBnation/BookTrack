@@ -56,7 +56,7 @@ export function PageHeader({
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="mb-3 block">
+    <label className="mb-3 block min-w-0">
       <span className="mb-1.5 block text-[12px] font-medium uppercase tracking-[0.14em] text-muted">{label}</span>
       {children}
     </label>
@@ -99,13 +99,13 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden">
       <button className="absolute inset-0 bg-black/60" aria-label="Close" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative max-h-[92dvh] w-full max-w-[480px] overflow-y-auto overscroll-contain rounded-t-[28px] border border-stroke bg-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="booking-sheet relative max-h-[92dvh] w-full max-w-[480px] overflow-x-hidden overflow-y-auto overscroll-y-contain rounded-t-[28px] border border-stroke bg-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
       >
         <div className="sticky top-0 z-10 -mx-5 flex h-8 items-center justify-center bg-card">
           <span className="h-1.5 w-10 rounded-full bg-[var(--track)]" />
