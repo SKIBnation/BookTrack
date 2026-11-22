@@ -24,14 +24,15 @@ export default function App() {
         const result = await bootstrap()
         if (cancelled) return
         if (result === 'locked') {
-          clearSession()
+          await clearSession()
           setState('locked')
           return
         }
         stopSync.current = startSync(() => {
-          clearSession()
-          stopSync.current?.()
-          setState('locked')
+          void clearSession().then(() => {
+            stopSync.current?.()
+            setState('locked')
+          })
         })
         void ensurePushSubscription()
         setState('ready')
@@ -53,14 +54,15 @@ export default function App() {
         onUnlocked={async () => {
           const result = await bootstrap()
           if (result === 'locked') {
-            clearSession()
+            await clearSession()
             return 'The book locked itself. Enter the password again.'
           }
           stopSync.current?.()
           stopSync.current = startSync(() => {
-            clearSession()
-            stopSync.current?.()
-            setState('locked')
+            void clearSession().then(() => {
+              stopSync.current?.()
+              setState('locked')
+            })
           })
           void ensurePushSubscription()
           setState('ready')

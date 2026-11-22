@@ -4,6 +4,7 @@ import { unlock } from '../lib/api.ts'
 
 export function LockScreen({ onUnlocked }: { onUnlocked: () => Promise<string | null> }) {
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -12,7 +13,7 @@ export function LockScreen({ onUnlocked }: { onUnlocked: () => Promise<string | 
     if (busy) return
     setBusy(true)
     setMessage(null)
-    const error = await unlock(password)
+    const error = await unlock(password, remember)
     if (error) {
       setMessage(error)
       setBusy(false)
@@ -45,6 +46,15 @@ export function LockScreen({ onUnlocked }: { onUnlocked: () => Promise<string | 
             onChange={(event) => setPassword(event.target.value)}
             required
           />
+        </label>
+        <label className="mb-4 flex items-center gap-3 text-sm text-white/80">
+          <input
+            type="checkbox"
+            className="h-6 w-6 rounded accent-[#30d158]"
+            checked={remember}
+            onChange={(event) => setRemember(event.target.checked)}
+          />
+          Remember device
         </label>
         {message && <p className="mb-3 text-sm text-[#ff453a]">{message}</p>}
         <Button type="submit" disabled={busy || password.length === 0}>

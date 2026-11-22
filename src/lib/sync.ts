@@ -1,4 +1,4 @@
-import { commitOp, fetchBook, hasSession } from './api.ts'
+import { commitOp, fetchBook, hasSession, loadSession } from './api.ts'
 import type { BookFile } from './bookops.ts'
 import { readLocalBook, replaceFromServer } from './db.ts'
 import { enqueue } from './turn.ts'
@@ -19,7 +19,7 @@ export function subscribeSync(listener: () => void): () => void {
 }
 
 export async function bootstrap(): Promise<'ready' | 'locked' | 'offline'> {
-  if (!hasSession()) return 'locked'
+  if (!(await loadSession())) return 'locked'
   const remote = await fetchBook()
   if (!remote.ok) {
     if (remote.reason === 'unauthorized') return 'locked'

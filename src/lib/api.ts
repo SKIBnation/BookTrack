@@ -2,8 +2,11 @@ import type { BookFile, BookOp } from './bookops.ts'
 
 const SESSION_KEY = 'booktrack-session'
 const CLIENT_KEY = 'booktrack-client'
+const DEVICE_DB = 'BookTrackDevice'
+const DEVICE_STORE = 'device'
 
 let vapidKey = ''
+let memoryToken = ''
 
 export function apiBase(): string {
   const configured = import.meta.env.VITE_API_URL?.trim()
@@ -13,15 +16,45 @@ export function apiBase(): string {
 }
 
 export function hasSession(): boolean {
-  return Boolean(readToken())
+  return Boolean(memoryToken || readQuickToken())
 }
 
-export function clearSession(): void {
+export async function loadSession(): Promise<string> {
+  const sessionOnly = readStorage(sessionStorage)
+  if (sessionOnly) {
+    memoryToken = sessionOnly
+    return sessionOnly
+  }
+  const local = readStorage(localStorage)
+  if (local) {
+    memoryToken = local
+    void writeDeviceToken(local)
+    return local
+  }
+  const stored = await readDeviceToken()
+  if (!stored) return ''
+  memoryToken = stored
+  try {
+    localStorage.setItem(SESSION_KEY, stored)
+  } catch {
+    /* IndexedDB already has the remembered device. */
+  }
+  return stored
+}
+
+export async function clearSession(): Promise<void> {
+  memoryToken = ''
+  try {
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* Session storage can be blocked in private browsing. */
+  }
   try {
     localStorage.removeItem(SESSION_KEY)
   } catch {
     /* The lock screen still shows if the token cannot be cleared. */
   }
+  await writeDeviceToken(null)
 }
 
 export function clientId(): string {
@@ -40,7 +73,7 @@ export function vapidPublicKey(): string {
   return vapidKey
 }
 
-export async function unlock(password: string): Promise<string | null> {
+export async function unlock(password: string, remember: boolean): Promise<string | null> {
   let response: Response
   try {
     response = await fetch(`${apiBase()}/v1/unlock`, {
@@ -56,8 +89,29 @@ export async function unlock(password: string): Promise<string | null> {
   if (!response.ok) return 'The book can’t be reached. Check the connection and try again.'
   const body = (await response.json()) as { token?: string }
   if (!body.token) return 'The book can’t be reached. Check the connection and try again.'
+  memoryToken = body.token
+  if (remember) {
+    try {
+      sessionStorage.removeItem(SESSION_KEY)
+    } catch {
+      /* A remembered device uses the longer-lived store. */
+    }
+    try {
+      localStorage.setItem(SESSION_KEY, body.token)
+    } catch {
+      /* IndexedDB is the copy that survives an iPhone restart. */
+    }
+    await writeDeviceToken(body.token)
+    return null
+  }
+  await writeDeviceToken(null)
   try {
-    localStorage.setItem(SESSION_KEY, body.token)
+    localStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* This open still keeps the session until the app closes. */
+  }
+  try {
+    sessionStorage.setItem(SESSION_KEY, body.token)
   } catch {
     return 'This phone blocked site storage. Leave private browsing and try again.'
   }
@@ -100,7 +154,7 @@ export async function registerPush(subscription: PushSubscriptionJSON): Promise<
 }
 
 async function request(path: string, init: RequestInit = {}): Promise<Response | null> {
-  const token = readToken()
+  const token = memoryToken || readQuickToken()
   if (!token) return null
   try {
     return await fetch(`${apiBase()}${path}`, {
@@ -116,9 +170,56 @@ async function request(path: string, init: RequestInit = {}): Promise<Response |
   }
 }
 
-function readToken(): string {
+function readQuickToken(): string {
+  return readStorage(sessionStorage) || readStorage(localStorage)
+}
+
+function readStorage(storage: Storage): string {
   try {
-    return localStorage.getItem(SESSION_KEY) ?? ''
+    return storage.getItem(SESSION_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function deviceDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DEVICE_DB, 1)
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DEVICE_STORE)) request.result.createObjectStore(DEVICE_STORE)
+    }
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function writeDeviceToken(token: string | null): Promise<void> {
+  try {
+    const database = await deviceDb()
+    await new Promise<void>((resolve, reject) => {
+      const tx = database.transaction(DEVICE_STORE, 'readwrite')
+      const store = tx.objectStore(DEVICE_STORE)
+      if (token) store.put(token, 'session')
+      else store.delete('session')
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+    database.close()
+  } catch {
+    /* The other stored copy is used when this one is blocked. */
+  }
+}
+
+async function readDeviceToken(): Promise<string> {
+  try {
+    const database = await deviceDb()
+    const token = await new Promise<string>((resolve, reject) => {
+      const request = database.transaction(DEVICE_STORE, 'readonly').objectStore(DEVICE_STORE).get('session')
+      request.onsuccess = () => resolve(typeof request.result === 'string' ? request.result : '')
+      request.onerror = () => reject(request.error)
+    })
+    database.close()
+    return token
   } catch {
     return ''
   }
