@@ -2,7 +2,9 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { BookingForm } from '../components/BookingForm.tsx'
 import { BookingCard } from '../components/BookingCard.tsx'
+import { NotifyBanner } from '../components/NotifyBanner.tsx'
 import { IconButton, PageHeader } from '../components/ui.tsx'
+import { useSyncStatus } from '../hooks/useSyncStatus.ts'
 import { useBookData } from '../hooks/useBookData.tsx'
 import { useBookingEditor } from '../hooks/useBookingEditor.ts'
 import { sortBookings, summarizeDay } from '../lib/bookings.ts'
@@ -12,6 +14,7 @@ import { dayHeading, shiftDate } from '../lib/time.ts'
 export function TodayPage() {
   const { settings, bookings, tables, today, date, chooseDate } = useBookData()
   const editor = useBookingEditor()
+  const syncStatus = useSyncStatus()
   const [showClosed, setShowClosed] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const heading = dayHeading(date, today)
@@ -29,6 +32,10 @@ export function TodayPage() {
         detail={heading.detail}
         action={<IconButton label="Add booking" onClick={() => editor.add(date)}><Plus size={22} /></IconButton>}
       />
+      {syncStatus === 'offline' && (
+        <p className="mb-4 text-sm text-danger">Can’t reach the shared book right now.</p>
+      )}
+      <NotifyBanner />
       <div className="mb-4 grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2">
         <button type="button" aria-label="Previous day" className="flex h-11 items-center justify-center rounded-2xl bg-card" onClick={() => chooseDate(shiftDate(date, -1))}>
           <ChevronLeft size={20} />

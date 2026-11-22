@@ -1,8 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Booking, BookingDraft, BookingStatus, DiningTable, Settings } from '../types.ts'
+import { commitOp, hasSession } from './api.ts'
 import type { RestoredBackup } from './backup.ts'
+import type { BookFile, BookOp } from './bookops.ts'
 import { validateDraft, partyFitsTable, STANDARD_TABLES, tableKey } from './bookings.ts'
 import { normalizeSettings, rememberTheme, SETTINGS_ID } from './settings.ts'
+import { enqueue } from './turn.ts'
 
 const globalStore = globalThis as unknown as { __booktrackDb?: BookDatabase }
 
@@ -58,13 +61,8 @@ export function uid(): string {
 
 let settingsWrite: Promise<void> = Promise.resolve()
 
-export function updateSettings(patch: Partial<Settings>): Promise<void> {
-  const run = settingsWrite.then(async () => {
-    const current = normalizeSettings(await db.settings.get(SETTINGS_ID))
-    const next = normalizeSettings({ ...current, ...patch, id: SETTINGS_ID })
-    await db.settings.put(next)
-    rememberTheme(next.theme)
-  })
+export function updateSettings(patch: Partial<Settings>): Promise<string | null> {
+  const run = settingsWrite.then(async () => publish({ type: 'updateSettings', patch }))
   settingsWrite = run.then(
     () => undefined,
     () => undefined,
@@ -72,18 +70,37 @@ export function updateSettings(patch: Partial<Settings>): Promise<void> {
   return run
 }
 
+export async function readLocalBook(): Promise<BookFile> {
+  const settings = normalizeSettings(await db.settings.get(SETTINGS_ID))
+  return {
+    revision: 0,
+    settings,
+    tables: await db.diningTables.toArray(),
+    bookings: await db.bookings.toArray(),
+  }
+}
+
+export async function replaceFromServer(book: BookFile): Promise<void> {
+  const settings = normalizeSettings(book.settings)
+  await db.transaction('rw', db.bookings, db.diningTables, db.settings, async () => {
+    await db.bookings.clear()
+    await db.diningTables.clear()
+    await db.settings.clear()
+    if (book.bookings.length) await db.bookings.bulkAdd(book.bookings)
+    if (book.tables.length) await db.diningTables.bulkAdd(book.tables)
+    await db.settings.put(settings)
+  })
+  rememberTheme(settings.theme)
+}
+
 export async function saveBooking(draft: BookingDraft, id?: string): Promise<string | null> {
   const error = validateDraft(draft) ?? partyFitsTable(draft.partySize, draft.tableId, await db.diningTables.toArray())
   if (error) return error
   const now = new Date().toISOString()
-  if (id) {
-    const existing = await db.bookings.get(id)
-    if (!existing) return 'That booking is no longer on this device.'
-    await db.bookings.put(toBooking(draft, id, existing.createdAt, now))
-    return null
-  }
-  await db.bookings.add(toBooking(draft, uid(), now, now))
-  return null
+  const existing = id ? await db.bookings.get(id) : undefined
+  if (id && !existing) return 'That booking is no longer in the book.'
+  const booking = toBooking(draft, id ?? uid(), existing?.createdAt ?? now, now)
+  return publish({ type: 'saveBooking', booking })
 }
 
 export async function setBookingStatus(id: string, status: BookingStatus): Promise<string | null> {
@@ -93,12 +110,11 @@ export async function setBookingStatus(id: string, status: BookingStatus): Promi
     const fit = partyFitsTable(existing.partySize, existing.tableId, await db.diningTables.toArray())
     if (fit) return fit
   }
-  await db.bookings.update(id, { status, updatedAt: new Date().toISOString() })
-  return null
+  return publish({ type: 'setStatus', id, status })
 }
 
-export async function deleteBooking(id: string): Promise<void> {
-  await db.bookings.delete(id)
+export async function deleteBooking(id: string): Promise<string | null> {
+  return publish({ type: 'deleteBooking', id })
 }
 
 export async function addTable(name: string, seats: number): Promise<string | null> {
@@ -111,8 +127,7 @@ export async function addTable(name: string, seats: number): Promise<string | nu
     return 'You already have a table with that name.'
   }
   const sort = existing.reduce((max, table) => Math.max(max, table.sort), 0) + 1
-  await db.diningTables.add({ id: uid(), name: trimmed, seats, sort })
-  return null
+  return publish({ type: 'addTable', table: { id: uid(), name: trimmed, seats, sort } })
 }
 
 export async function updateTable(id: string, patch: { name?: string; seats?: number }): Promise<string | null> {
@@ -127,29 +142,23 @@ export async function updateTable(id: string, patch: { name?: string; seats?: nu
   if (existing.some((table) => table.id !== id && table.name.toLowerCase() === name.toLowerCase())) {
     return 'You already have a table with that name.'
   }
-  await db.diningTables.update(id, { name, seats })
+  return publish({ type: 'updateTable', id, name, seats })
+}
+
+export async function deleteTable(id: string): Promise<string | null> {
+  return publish({ type: 'deleteTable', id })
+}
+
+export async function restoreBackup(data: RestoredBackup): Promise<string | null> {
+  return publish({ type: 'replace', settings: data.settings, tables: data.tables, bookings: data.bookings })
+}
+
+async function publish(op: BookOp): Promise<string | null> {
+  if (!hasSession()) return 'Open the book with the password first.'
+  const result = await enqueue(() => commitOp(op))
+  if (typeof result === 'string') return result
+  await replaceFromServer(result)
   return null
-}
-
-export async function deleteTable(id: string): Promise<void> {
-  const now = new Date().toISOString()
-  await db.transaction('rw', db.diningTables, db.bookings, async () => {
-    await db.diningTables.delete(id)
-    const linked = await db.bookings.filter((booking) => booking.tableId === id).toArray()
-    await Promise.all(linked.map((booking) => db.bookings.update(booking.id, { tableId: null, updatedAt: now })))
-  })
-}
-
-export async function restoreBackup(data: RestoredBackup): Promise<void> {
-  await db.transaction('rw', db.bookings, db.diningTables, db.settings, async () => {
-    await db.bookings.clear()
-    await db.diningTables.clear()
-    await db.settings.clear()
-    if (data.bookings.length) await db.bookings.bulkAdd(data.bookings)
-    if (data.tables.length) await db.diningTables.bulkAdd(data.tables)
-    await db.settings.put(data.settings)
-  })
-  rememberTheme(data.settings.theme)
 }
 
 function toBooking(draft: BookingDraft, id: string, createdAt: string, updatedAt: string): Booking {

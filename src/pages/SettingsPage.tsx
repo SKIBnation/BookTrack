@@ -40,7 +40,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" detail="The book stays on this device." />
+      <PageHeader title="Settings" detail="Shared with the other phone." />
       <Card className="mb-3">
         <SavedField
           label="Restaurant"
@@ -126,7 +126,7 @@ export function SettingsPage() {
       <Card className="mb-3">
         <h2 className="text-lg font-semibold">Backup</h2>
         <p className="mt-1 mb-4 text-sm leading-5 text-muted">
-          There is no account. Export a copy if you want the book on another phone, or a spreadsheet of the bookings.
+          Export a spreadsheet of the bookings, or a file you can restore later.
         </p>
         <div className="flex flex-col gap-2">
           <Button size="regular" className="w-full" variant="secondary" onClick={() => void exportCsv()}>Export bookings as CSV</Button>
@@ -159,8 +159,8 @@ export function SettingsPage() {
 
       {pendingRestore && (
         <Confirm
-          title="Replace the book on this device?"
-          body={`This restores ${pendingRestore.bookings.length} bookings and ${pendingRestore.tables.length} tables. The current book on this device will be replaced.`}
+          title="Replace the shared book?"
+          body={`This restores ${pendingRestore.bookings.length} bookings and ${pendingRestore.tables.length} tables. The current shared book will be replaced.`}
           confirmLabel="Restore"
           danger
           onCancel={() => setPendingRestore(null)}

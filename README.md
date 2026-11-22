@@ -2,7 +2,7 @@
 
 BookTrack is a restaurant booking book. It runs in the browser on Windows and installs on an iPhone from Safari, without a Mac, Xcode, or the App Store.
 
-Bookings stay on the device. The book records the guest, party size, date, time, table, and whether they are still due, seated, finished, cancelled, or a no-show.
+The book is shared by the two people who use it. Opening BookTrack asks for the password. A booking added on one phone shows on the other, and can ping that phone when notifications are on. The book records the guest, party size, date, time, table, and whether they are still due, seated, finished, cancelled, or a no-show.
 
 ## What you need
 
@@ -59,17 +59,19 @@ Open it once while you are online. That visit stores the app on the phone. After
 - **Find** searches a guest by name, phone number, or note.
 - **Settings** stores the restaurant name, the usual party size and sitting length, and the tables.
 
-A booking needs a name, a party of 1 to 40, a date, and a time. The usual sitting is 90 minutes. Phone and notes are optional.
+A booking needs a name, a phone number, a party of 1 to 40, a date, and a time. The usual sitting is 90 minutes.
 
 If the table is already held by another booking that is still booked or seated, BookTrack warns you. The same happens when the party is larger than the table. You can save anyway. A sitting that has finished, been cancelled, or not arrived does not keep the table. Two sittings may touch: a table free at 21:00 can be booked again at 21:00.
 
 Times are the clock time you type. “Today” uses the timezone of the device the book was first opened on. Days are stored as dates, so a 23:30 booking still belongs to that service even when it ends after midnight.
 
-## Offline and backups
+## Shared book and backups
 
-Bookings, tables, and settings are stored in IndexedDB on the device. The service worker caches the app itself.
+Both phones open the same book. The password is checked by the server and is not stored in the app or the public site. After the first unlock, that phone stays unlocked.
 
-There is no account and no server copy. Use **Settings → Backup**:
+Turn on notifications from Today. On an iPhone this only works after you add BookTrack to the Home Screen and open it from that icon.
+
+Bookings still need a connection to reach the other phone. A copy of the last book stays on the device, so you can look at it if the connection drops. Use **Settings → Backup**:
 
 - **Export bookings as CSV** opens in Excel. The file includes a byte-order mark so names survive.
 - **Download full backup** saves every booking, table, and setting as JSON.

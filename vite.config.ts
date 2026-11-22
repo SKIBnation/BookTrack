@@ -34,14 +34,29 @@ export default defineConfig(({ mode }) => {
             { src: 'pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
-        workbox: {
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
+        injectManifest: {
           globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
-          navigateFallback: `${normalizedBase}index.html`,
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        },
+        devOptions: {
+          enabled: false,
+          type: 'module',
         },
         minify: true,
       }),
     ],
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8787',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+      },
+    },
     test: {
       environment: 'node',
       include: ['src/**/*.test.ts'],

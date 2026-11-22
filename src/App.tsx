@@ -1,24 +1,74 @@
-import { Component, type ReactNode, useEffect, useState } from 'react'
+import { Component, type ReactNode, useEffect, useRef, useState } from 'react'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell.tsx'
 import { LoadingScreen } from './components/LoadingScreen.tsx'
+import { LockScreen } from './components/LockScreen.tsx'
 import { db } from './lib/db.ts'
+import { clearSession } from './lib/api.ts'
+import { ensurePushSubscription } from './lib/push.ts'
+import { bootstrap, startSync } from './lib/sync.ts'
 import { DiaryPage } from './pages/DiaryPage.tsx'
 import { FindPage } from './pages/FindPage.tsx'
 import { SettingsPage } from './pages/SettingsPage.tsx'
 import { TodayPage } from './pages/TodayPage.tsx'
 
 export default function App() {
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [state, setState] = useState<'loading' | 'locked' | 'ready' | 'error'>('loading')
   const [introDone, setIntroDone] = useState(false)
+  const stopSync = useRef<(() => void) | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     db.open()
-      .then(() => setState('ready'))
-      .catch(() => setState('error'))
+      .then(async () => {
+        const result = await bootstrap()
+        if (cancelled) return
+        if (result === 'locked') {
+          clearSession()
+          setState('locked')
+          return
+        }
+        stopSync.current = startSync(() => {
+          clearSession()
+          stopSync.current?.()
+          setState('locked')
+        })
+        void ensurePushSubscription()
+        setState('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setState('error')
+      })
+    return () => {
+      cancelled = true
+      stopSync.current?.()
+    }
   }, [])
 
   if (!introDone || state === 'loading') return <LoadingScreen onDone={() => setIntroDone(true)} />
+
+  if (state === 'locked') {
+    return (
+      <LockScreen
+        onUnlocked={async () => {
+          const result = await bootstrap()
+          if (result === 'locked') {
+            clearSession()
+            return 'The book locked itself. Enter the password again.'
+          }
+          stopSync.current?.()
+          stopSync.current = startSync(() => {
+            clearSession()
+            stopSync.current?.()
+            setState('locked')
+          })
+          void ensurePushSubscription()
+          setState('ready')
+          return null
+        }}
+      />
+    )
+  }
 
   if (state === 'error') {
     return (

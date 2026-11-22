@@ -36,7 +36,7 @@ export function BookingForm({
       if (error) setMessage(error)
       else onClose()
     } catch {
-      setMessage('The booking could not be saved on this device.')
+      setMessage('The booking could not be saved.')
     } finally {
       setSaving(false)
     }
@@ -203,7 +203,7 @@ export function BookingForm({
       {confirmDelete && onDelete && (
         <Confirm
           title="Remove this booking?"
-          body={`${draft.guestName.trim() || 'This guest'} will be taken off the book on this device.`}
+          body={`${draft.guestName.trim() || 'This guest'} will be taken off the shared book.`}
           confirmLabel="Remove"
           danger
           onCancel={() => setConfirmDelete(false)}

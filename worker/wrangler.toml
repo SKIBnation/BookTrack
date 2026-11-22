@@ -1,0 +1,12 @@
+name = "booktrack"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "BOOK"
+class_name = "BookRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BookRoom"]
